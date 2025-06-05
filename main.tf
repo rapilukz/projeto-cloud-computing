@@ -120,7 +120,6 @@ resource "null_resource" "deploy_code" {
 
     provisioner "local-exec" {
         command = <<EOT
-            echo ZIP path is: "${data.archive_file.app_zip.output_path}"
             command = "az webapp deployment source config-zip --resource-group ${azurerm_resource_group.rg.name} --name ${azurerm_linux_web_app.webapp.name} --src \"${data.archive_file.app_zip.output_path}\""
         EOT
 
