@@ -6,7 +6,7 @@ provider "azurerm" {
 }
 
 #############################################
-# 1) Resource Group
+# 1) Resource Group + Random Suffix
 #############################################
 
 # Create Base Resource Group
@@ -15,45 +15,50 @@ resource "azurerm_resource_group" "rg" {
     location = var.location
 }
 
-#############################################
-# 2) Azure Database for MySQL Server + DB
-#############################################
-
-# Setup Azure MySQL Server
-resource "azurerm_mysql_server" "mysql" {
-    name                            = "${var.prefix}-mysql"
-    resource_group_name             = azurerm_resource_group.rg.name
-    location                        = azurerm_resource_group.rg.location
-    version                         = "8.0"
-
-    administrator_login             = var.db_admin_username
-    administrator_password          = var.db_admin_password
-
-    sku_name                        = "GP_Gen5_2"
-    storage_mb                      = 51200
-
-    geo_redundant_backup_enabled    = false
-    public_network_access_enabled   = true
+# Generate a random suffix for resource names
+resource "random_string" "suffix" {
+    length  = 6
+    upper   = false
+    special = false
 }
 
-# Firewall rule to allow access from Azure services
-resource "azurerm_mysql_server_firewall_rule" "allow_azure" {
-    name                = "allow_azure_services"
-    resource_group_name = azurerm_resource_group.rg.name
-    server_name         = azurerm_mysql_server.mysql.name
+locals {
+    unique_suffix = random_string.suffix.result
+}
 
+#############################################
+# 2) Azure Database for SQL Server + DB
+#############################################
+
+# Setup Azure SQL Server
+resource "azurerm_mssql_server" "sql_server" {
+    name                         = "carsappsqlserver-${local.unique_suffix}"
+    resource_group_name          = azurerm_resource_group.rg.name
+    location                     = azurerm_resource_group.rg.location
+    version                      = "12.0"
+    administrator_login          = var.db_admin_username
+    administrator_login_password = var.db_admin_password
+
+    depends_on = [ azurerm_resource_group.rg ]
+}
+
+resource "azurerm_mssql_database" "db" {
+    name           = var.db_name
+    server_id      = azurerm_mssql_server.sql_server.id
+    sku_name       = "Basic"
+    collation      = "SQL_Latin1_General_CP1_CI_AS"
+    max_size_gb    = 2
+
+    depends_on = [ azurerm_mssql_server.sql_server ]
+}
+
+resource "azurerm_mssql_firewall_rule" "allow_local" {
+    name                = "AllowLocal"
+    server_id = azurerm_mssql_server.sql_server.id
     start_ip_address    = "0.0.0.0"
     end_ip_address      = "0.0.0.0"
-}
 
-# Create the database
-resource "azurerm_mysql_database" "db" {
-    name                = var.db_name
-    resource_group_name = azurerm_resource_group.rg.name
-    server_name         = azurerm_mysql_server.mysql.name
-
-    charset             = "utf8"
-    collation           = "utf8_general_ci"
+    depends_on = [ azurerm_mssql_server.sql_server ]
 }
 
 #############################################
@@ -61,37 +66,35 @@ resource "azurerm_mysql_database" "db" {
 #############################################
 
 # App Serivice Plan (Linux)
-resource "azurerm_app_service_plan" "asp" {
-    name                = "${var.prefix}-asp-linux"
+resource "azurerm_service_plan" "asp" {
+    name                = "${var.prefix}-asp"
     location            = azurerm_resource_group.rg.location
     resource_group_name = azurerm_resource_group.rg.name
-    kind                = "Linux"
-    reserved            = true
 
-    sku {
-        tier     = "Basic"
-        size     = "B1"
-    }
+    os_type             = "Linux"
+    sku_name            = "B1"  # Basic tier
 }
 
 
 # Web App Php (App Service) - runtime Linux + PHP 8.0
-resource "azurerm_app_service" "name" {
-    name = "${var.prefix}-webapp"
-    location = azurerm_resource_group.rg.location
+resource "azurerm_linux_web_app" "webapp" {
+    name                = "${var.prefix}-webapp"
+    location            = azurerm_resource_group.rg.location
     resource_group_name = azurerm_resource_group.rg.name
-    app_service_plan_id = azurerm_app_service_plan.asp.id
-
+    service_plan_id     = azurerm_service_plan.asp.id
     # Configs for PHP
     site_config {
-        linux_fx_version = "PHP|8.0"
+        application_stack {
+            php_version = "8.0"
+        }
     }
 
     app_settings = {
-        "DB_HOST"     = azurerm_mysql_server.mysql.fqdn
-        "DB_NAME"     = var.db_name
-        "DB_USER"     = "${var.db_admin_username}@${azurerm_mysql_server.mysql.name}"
+        "DB_HOST"     = azurerm_mssql_server.sql_server.fully_qualified_domain_name
+        "DB_NAME"     = azurerm_mssql_database.db.name
+        "DB_USER"     = "${var.db_admin_username}@${azurerm_mssql_server.sql_server.name}"
         "DB_PASSWORD" = var.db_admin_password
+        
         # Necessary for "config.zip" via Azure CLI
         "WEBSITE_RUN_FROM_PACKAGE" = "1"
     }
@@ -106,4 +109,64 @@ data "archive_file" "app_zip" {
     type        = "zip"
     source_dir  = "${path.module}/app"
     output_path = "${path.module}/app.zip"
+}
+
+# Upload the zip file to the web app
+resource "null_resource" "deploy_code" {
+    depends_on = [
+        azurerm_linux_web_app.webapp,
+        data.archive_file.app_zip
+    ]
+
+    provisioner "local-exec" {
+        command = <<EOT
+            echo ZIP path is: "${data.archive_file.app_zip.output_path}"
+            command = "az webapp deployment source config-zip --resource-group ${azurerm_resource_group.rg.name} --name ${azurerm_linux_web_app.webapp.name} --src \"${data.archive_file.app_zip.output_path}\""
+        EOT
+
+        interpreter = ["cmd.exe", "/C"]
+    }
+  
+}
+
+# Init SQL Database Schema
+resource "null_resource" "sqlserver_init" { 
+    depends_on = [ azurerm_mssql_database.db ]
+
+    provisioner "local-exec" {
+        command = <<EOT
+
+            sqlcmd -S ${azurerm_mssql_server.sql_server.fully_qualified_domain_name} ^
+                -U ${var.db_admin_username}@${azurerm_mssql_server.sql_server.name} ^
+                -P ${var.db_admin_password} ^
+                -d ${azurerm_mssql_database.db.name} ^
+                -i "${path.module}\\app\\schema.sql"
+        EOT
+
+        interpreter = ["cmd.exe", "/C"]
+    }
+}
+
+#############################################
+# 5) Outputs (URLs, credenciais, etc.)
+#############################################
+
+output "webapp_url" {
+    description = "The URL of the deployed web app"
+    value = azurerm_linux_web_app.webapp.default_hostname
+}
+
+output "mysql_server_fqdn" {
+    description = "The fully qualified domain name of the MySQL server"
+    value = azurerm_mssql_server.sql_server.fully_qualified_domain_name
+}
+
+output "db_name" {
+    description = "The name of the MySQL database"
+    value = azurerm_mssql_database.db.name
+}
+
+output "db_user" {
+    description = "The MySQL database administrator username"
+    value = "${var.db_admin_username}@${azurerm_mssql_server.sql_server.name}"
 }
