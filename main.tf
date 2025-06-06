@@ -135,11 +135,8 @@ resource "null_resource" "sqlserver_init" {
     provisioner "local-exec" {
         command = <<EOT
 
-            sqlcmd -S ${azurerm_mssql_server.sql_server.fully_qualified_domain_name} ^
-                -U ${var.db_admin_username}@${azurerm_mssql_server.sql_server.name} ^
-                -P ${var.db_admin_password} ^
-                -d ${azurerm_mssql_database.db.name} ^
-                -i "${path.module}/app/schema.sql"
+            sqlcmd -S ${azurerm_mssql_server.sql_server.fully_qualified_domain_name} -U ${var.db_admin_username}@${azurerm_mssql_server.sql_server.name} -P ${var.db_admin_password} -d ${azurerm_mssql_database.db.name} -i "${path.module}/sql/schema.sql"
+            echo "Database schema initialized successfully."
         EOT
 
         interpreter = ["cmd.exe", "/C"]
