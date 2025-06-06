@@ -1,4 +1,3 @@
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='cars' AND xtype='U')
 BEGIN
     CREATE TABLE cars (
         id INT IDENTITY(1,1) PRIMARY KEY,

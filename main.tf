@@ -120,7 +120,7 @@ resource "null_resource" "deploy_code" {
 
     provisioner "local-exec" {
         command = <<EOT
-            command = "az webapp deployment source config-zip --resource-group ${azurerm_resource_group.rg.name} --name ${azurerm_linux_web_app.webapp.name} --src \"${data.archive_file.app_zip.output_path}\""
+            command = "az webapp deploy --resource-group ${azurerm_resource_group.rg.name} --name ${azurerm_linux_web_app.webapp.name} --src-path "${data.archive_file.app_zip.output_path}" --type zip
         EOT
 
         interpreter = ["cmd.exe", "/C"]
@@ -139,7 +139,7 @@ resource "null_resource" "sqlserver_init" {
                 -U ${var.db_admin_username}@${azurerm_mssql_server.sql_server.name} ^
                 -P ${var.db_admin_password} ^
                 -d ${azurerm_mssql_database.db.name} ^
-                -i "${path.module}\\app\\schema.sql"
+                -i "${path.module}/app/schema.sql"
         EOT
 
         interpreter = ["cmd.exe", "/C"]
