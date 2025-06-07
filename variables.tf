@@ -27,3 +27,10 @@ variable "db_name" {
     default     = "carsdb"
     description = "The name of the database to be created."
 }
+
+variable "repo_url" {
+    type        = string
+    default     = "https://github.com/rapilukz/projeto-cloud-computing.git"
+    description = "The URL of the GitHub repository containing the web app code."
+  
+}
