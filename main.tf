@@ -52,11 +52,11 @@ resource "azurerm_mssql_database" "db" {
     depends_on = [ azurerm_mssql_server.sql_server ]
 }
 
-resource "azurerm_mssql_firewall_rule" "allow_local" {
+resource "azurerm_mssql_firewall_rule" "allow_all" {
     name                = "AllowLocal"
-    server_id = azurerm_mssql_server.sql_server.id
+    server_id           = azurerm_mssql_server.sql_server.id
     start_ip_address    = "0.0.0.0"
-    end_ip_address      = "0.0.0.0"
+    end_ip_address      = "255.255.255.255"
 
     depends_on = [ azurerm_mssql_server.sql_server ]
 }
@@ -120,7 +120,7 @@ resource "null_resource" "deploy_code" {
 
     provisioner "local-exec" {
         command = <<EOT
-            command = "az webapp deploy --resource-group ${azurerm_resource_group.rg.name} --name ${azurerm_linux_web_app.webapp.name} --src-path "${data.archive_file.app_zip.output_path}" --type zip
+            az webapp deploy --resource-group ${azurerm_resource_group.rg.name} --name ${azurerm_linux_web_app.webapp.name} --src-path "${data.archive_file.app_zip.output_path}" --type zip
         EOT
 
         interpreter = ["cmd.exe", "/C"]
