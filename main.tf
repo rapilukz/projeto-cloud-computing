@@ -112,35 +112,41 @@ data "archive_file" "app_zip" {
 }
 
 # Upload the zip file to the web app
-resource "null_resource" "deploy_code" {
-    depends_on = [
-        azurerm_linux_web_app.webapp,
-        data.archive_file.app_zip
-    ]
+resource "terraform_data" "deploy_code" {
+  depends_on = [
+    azurerm_linux_web_app.webapp,
+    data.archive_file.app_zip
+  ]
 
     provisioner "local-exec" {
         command = <<EOT
-            az webapp deploy --resource-group ${azurerm_resource_group.rg.name} --name ${azurerm_linux_web_app.webapp.name} --src-path "${data.archive_file.app_zip.output_path}" --type zip
-        EOT
+                az webapp deploy --resource-group ${azurerm_resource_group.rg.name} ^
+                --name ${azurerm_linux_web_app.webapp.name} ^
+                --src-path "${data.archive_file.app_zip.output_path}" ^
+                --type zip
+            EOT
 
-        interpreter = ["cmd.exe", "/C"]
+            interpreter = ["cmd.exe", "/C"]
     }
-  
 }
 
+
 # Init SQL Database Schema
-resource "null_resource" "sqlserver_init" { 
-    depends_on = [ azurerm_mssql_database.db ]
+resource "terraform_data" "sqlserver_init" {
+  depends_on = [azurerm_mssql_database.db]
 
-    provisioner "local-exec" {
-        command = <<EOT
+  provisioner "local-exec" {
+    command = <<EOT
+        sqlcmd -S ${azurerm_mssql_server.sql_server.fully_qualified_domain_name} ^
+        -U ${var.db_admin_username}@${azurerm_mssql_server.sql_server.name} ^
+        -P ${var.db_admin_password} ^
+        -d ${azurerm_mssql_database.db.name} ^
+        -i "${path.module}\\sql\\schema.sql"
+        echo Database schema initialized successfully.
+    EOT
 
-            sqlcmd -S ${azurerm_mssql_server.sql_server.fully_qualified_domain_name} -U ${var.db_admin_username}@${azurerm_mssql_server.sql_server.name} -P ${var.db_admin_password} -d ${azurerm_mssql_database.db.name} -i "${path.module}/sql/schema.sql"
-            echo "Database schema initialized successfully."
-        EOT
-
-        interpreter = ["cmd.exe", "/C"]
-    }
+    interpreter = ["cmd.exe", "/C"]
+  }
 }
 
 #############################################
