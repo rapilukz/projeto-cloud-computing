@@ -34,3 +34,9 @@ variable "repo_url" {
     description = "The URL of the GitHub repository containing the web app code."
   
 }
+
+variable "github_auth_token" {
+    type        = string
+    description = "The GitHub authentication token for accessing the repository."
+    default     = ""
+}

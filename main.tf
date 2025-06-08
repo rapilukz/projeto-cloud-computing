@@ -94,60 +94,27 @@ resource "azurerm_linux_web_app" "webapp" {
         "DB_NAME"     = azurerm_mssql_database.db.name
         "DB_USER"     = "${var.db_admin_username}@${azurerm_mssql_server.sql_server.name}"
         "DB_PASSWORD" = var.db_admin_password
-        
-        # Necessary for "config.zip" via Azure CLI
-        "WEBSITE_RUN_FROM_PACKAGE" = "1"
     }
 }
 
 #############################################
-# 4) Packaging & Deploy of PHP Code
+# 4) Setup GitHub Deployment
 #############################################
 
-# Zip the "app/" directory to deploy the web app
-data "archive_file" "app_zip" {
-    type        = "zip"
-    source_dir  = "${path.module}/app"
-    output_path = "${path.module}/app.zip"
+resource "azurerm_app_service_source_control" "source_control" {
+    app_id                 = azurerm_linux_web_app.webapp.id
+    repo_url               = "https://github.com/rapilukz/projeto-cloud-computing.git"
+    branch                 = "main"
+    use_manual_integration = true
 }
 
-# Upload the zip file to the web app
-resource "terraform_data" "deploy_code" {
-  depends_on = [
-    azurerm_linux_web_app.webapp,
-    data.archive_file.app_zip
-  ]
-
-    provisioner "local-exec" {
-        command = <<EOT
-                az webapp deploy --resource-group ${azurerm_resource_group.rg.name} ^
-                --name ${azurerm_linux_web_app.webapp.name} ^
-                --src-path "${data.archive_file.app_zip.output_path}" ^
-                --type zip
-            EOT
-
-            interpreter = ["cmd.exe", "/C"]
-    }
+resource "azurerm_source_control_token" "source_control_token" {
+    type         = "GitHub"
+    token        = var.github_auth_token
+    token_secret = var.github_auth_token
 }
 
 
-# Init SQL Database Schema
-resource "terraform_data" "sqlserver_init" {
-  depends_on = [azurerm_mssql_database.db]
-
-  provisioner "local-exec" {
-    command = <<EOT
-        sqlcmd -S ${azurerm_mssql_server.sql_server.fully_qualified_domain_name} ^
-        -U ${var.db_admin_username}@${azurerm_mssql_server.sql_server.name} ^
-        -P ${var.db_admin_password} ^
-        -d ${azurerm_mssql_database.db.name} ^
-        -i "${path.module}\\sql\\schema.sql"
-        echo Database schema initialized successfully.
-    EOT
-
-    interpreter = ["cmd.exe", "/C"]
-  }
-}
 
 #############################################
 # 5) Outputs (URLs, credenciais, etc.)
