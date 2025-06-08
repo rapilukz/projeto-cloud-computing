@@ -106,15 +106,21 @@ resource "azurerm_app_service_source_control" "source_control" {
     repo_url               = "https://github.com/rapilukz/projeto-cloud-computing.git"
     branch                 = "main"
     use_manual_integration = true
+
+    timeouts {
+        create = "30m"
+    }
+
+    depends_on = [ azurerm_linux_web_app.webapp ]
 }
 
 resource "azurerm_source_control_token" "source_control_token" {
     type         = "GitHub"
     token        = var.github_auth_token
     token_secret = var.github_auth_token
+
+    depends_on = [ azurerm_app_service_source_control.source_control ]
 }
-
-
 
 #############################################
 # 5) Outputs (URLs, credenciais, etc.)
