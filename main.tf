@@ -1,9 +1,5 @@
 variable "subscription_id" {}
 
-provider "azurerm" {
-    features {}
-    subscription_id = var.subscription_id
-}
 
 #############################################
 # 1) Resource Group + Random Suffix
@@ -75,15 +71,16 @@ resource "azurerm_service_plan" "asp" {
     sku_name            = "B1"  # Basic tier
 }
 
-
 # Web App Php (App Service) - runtime Linux + PHP 8.0
 resource "azurerm_linux_web_app" "webapp" {
-    name                = "${var.prefix}-webapp"
+    name                = "${var.prefix}-webapp-${local.unique_suffix}"
     location            = azurerm_resource_group.rg.location
     resource_group_name = azurerm_resource_group.rg.name
     service_plan_id     = azurerm_service_plan.asp.id
+    https_only          = true
     # Configs for PHP
     site_config {
+        minimum_tls_version = "1.2"
         application_stack {
             php_version = "8.0"
         }
@@ -100,18 +97,22 @@ resource "azurerm_linux_web_app" "webapp" {
 #############################################
 # 4) Setup GitHub Deployment
 #############################################
-
 resource "azurerm_app_service_source_control" "source_control" {
-    app_id                 = azurerm_linux_web_app.webapp.id
-    repo_url               = "https://github.com/rapilukz/projeto-cloud-computing.git"
-    branch                 = "main"
-    use_manual_integration = true
+    app_id                  = azurerm_linux_web_app.webapp.id
+    repo_url                = "https://github.com/rapilukz/projeto-cloud-computing.git"
+    branch                  = "main"
+    scm_type                = "GitHub"
+    use_manual_integration  = false
+    use_mercurial           = false 
 
     timeouts {
         create = "30m"
     }
 
-    depends_on = [ azurerm_linux_web_app.webapp ]
+    depends_on  = [ 
+        azurerm_linux_web_app.webapp, 
+        azurerm_source_control_token.source_control_token 
+    ]
 }
 
 resource "azurerm_source_control_token" "source_control_token" {
