@@ -101,7 +101,7 @@ resource "terraform_data" "initialize_db_schema" {
 
 output "webapp_url" {
     description = "The URL of the deployed web app"
-    value = "https://${azurerm_linux_web_app.webapp.default_site_hostname}"
+    value = "https://${azurerm_linux_web_app.webapp.default_hostname}"
 }
 
 output "db_user" {
