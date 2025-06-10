@@ -103,19 +103,18 @@ p a:hover {
 .form-buttons {
     display: flex;
     flex-direction: row;
-    gap: 1.5rem;
+    gap: 1rem;
     align-items: center;
 }
 
 .secondary-button {
     display: inline-block;
-    padding: 0.5em 1em;
+    padding: 10px 15px;
     border: 2px solid #333;
     background-color: transparent;
     color: #333;
     text-decoration: none;
     border-radius: 5px;
-    margin-left: 1em;
     transition: background-color 0.2s, color 0.2s;
 }
 
@@ -134,8 +133,12 @@ p a:hover {
     background: none;
     border: none;
     color: #007BFF;
-    text-decoration: underline;
+    text-decoration: none;
     cursor: pointer;
     padding: 0;
     font: inherit;
+}
+
+.delete-button:hover {
+    text-decoration: underline;
 }
