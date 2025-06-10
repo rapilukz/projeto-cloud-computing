@@ -1,17 +1,10 @@
 variable "subscription_id" {}
 
-
-#############################################
-# 1) Resource Group + Random Suffix
-#############################################
-
-# Create Base Resource Group
 resource "azurerm_resource_group" "rg" {
     name     = "${var.prefix}-rg"
     location = var.location
 }
 
-# Generate a random suffix for resource names
 resource "random_string" "suffix" {
     length  = 6
     upper   = false
@@ -22,119 +15,76 @@ locals {
     unique_suffix = random_string.suffix.result
 }
 
-#############################################
-# 2) Azure Database for SQL Server + DB
-#############################################
+resource "azurerm_service_plan" "name" {
+    name                = "${var.prefix}-serviceplan-${local.unique_suffix}"
+    location            = azurerm_resource_group.rg.location
+    resource_group_name = azurerm_resource_group.rg.name
+    os_type             = "Linux"
+    sku_name            = "B1"  # Basic tier
+}
 
-# Setup Azure SQL Server
-resource "azurerm_mssql_server" "sql_server" {
-    name                         = "carsappsqlserver-${local.unique_suffix}"
+resource "azurerm_linux_web_app" "webapp" {
+    name                = "${var.prefix}-webapp-${local.unique_suffix}"
+    location            = azurerm_resource_group.rg.location
+    resource_group_name = azurerm_resource_group.rg.name
+    service_plan_id     = azurerm_service_plan.name.id
+
+    site_config {
+        minimum_tls_version = "1.2"
+        application_stack {
+            php_version = "8.0"  # Specify the PHP version
+        }
+    }
+    connection_string {
+        name  = "DefaultConnection"
+        type  = "SQLAzure"
+        value = "Server=tcp:${azurerm_mssql_server.sql.name}.database.windows.net;Database=${var.db_name};User ID=${var.db_admin_username}@${azurerm_mssql_server.sql.name};Password=${var.db_admin_password};Encrypt=true;TrustServerCertificate=false;Connection Timeout=30;"
+    }
+}
+
+resource "azurerm_mssql_server" "sql" {
+    name                         = "${var.prefix}-sql-${local.unique_suffix}"
     resource_group_name          = azurerm_resource_group.rg.name
     location                     = azurerm_resource_group.rg.location
     version                      = "12.0"
     administrator_login          = var.db_admin_username
     administrator_login_password = var.db_admin_password
-
-    depends_on = [ azurerm_resource_group.rg ]
 }
 
 resource "azurerm_mssql_database" "db" {
     name           = var.db_name
-    server_id      = azurerm_mssql_server.sql_server.id
+    server_id      = azurerm_mssql_server.sql.id
     sku_name       = "Basic"
     collation      = "SQL_Latin1_General_CP1_CI_AS"
     max_size_gb    = 2
 
-    depends_on = [ azurerm_mssql_server.sql_server ]
+    depends_on = [ azurerm_mssql_server.sql ]
 }
 
-resource "azurerm_mssql_firewall_rule" "allow_all" {
-    name                = "AllowLocal"
-    server_id           = azurerm_mssql_server.sql_server.id
-    start_ip_address    = "0.0.0.0"
-    end_ip_address      = "255.255.255.255"
-
-    depends_on = [ azurerm_mssql_server.sql_server ]
+resource "archive_file" "app_zip" {
+    type        = "zip"
+    source_dir  = "${path.module}/app"
+    output_path = "${path.module}/app.zip"
+    
+    depends_on = [ azurerm_linux_web_app.webapp ]
 }
 
-#############################################
-# 3) App Service Plan (Linux) + Web App PHP
-#############################################
+resource "terraform_data" "deploy_code" {
+    depends_on = [ archive_file.app_zip ]
 
-# App Serivice Plan (Linux)
-resource "azurerm_service_plan" "asp" {
-    name                = "${var.prefix}-asp"
-    location            = azurerm_resource_group.rg.location
-    resource_group_name = azurerm_resource_group.rg.name
-
-    os_type             = "Linux"
-    sku_name            = "B1"  # Basic tier
-}
-
-# Web App Php (App Service) - runtime Linux + PHP 8.0
-resource "azurerm_linux_web_app" "webapp" {
-    name                = "${var.prefix}-webapp-${local.unique_suffix}"
-    location            = azurerm_resource_group.rg.location
-    resource_group_name = azurerm_resource_group.rg.name
-    service_plan_id     = azurerm_service_plan.asp.id
-    https_only          = true
-    # Configs for PHP
-    site_config {
-        minimum_tls_version = "1.2"
-        application_stack {
-            php_version = "8.0"
-        }
-    }
-
-    app_settings = {
-        "DB_HOST"     = azurerm_mssql_server.sql_server.fully_qualified_domain_name
-        "DB_NAME"     = azurerm_mssql_database.db.name
-        "DB_USER"     = "${var.db_admin_username}@${azurerm_mssql_server.sql_server.name}"
-        "DB_PASSWORD" = var.db_admin_password
+    provisioner "local-exec" {
+        command = "az webapp deploy --resource-group ${azurerm_resource_group.rg.name} --name ${azurerm_linux_web_app.webapp.name} --src-path ${archive_file.app_zip.output_path}"
     }
 }
-
-#############################################
-# 4) Setup GitHub Deployment
-#############################################
-resource "azurerm_app_service_source_control" "source_control" {
-    app_id                  = azurerm_linux_web_app.webapp.id
-    repo_url                = "https://github.com/rapilukz/projeto-cloud-computing.git"
-    branch                  = "main"
-    scm_type                = "GitHub"
-    use_manual_integration  = false
-    use_mercurial           = false 
-
-    timeouts {
-        create = "30m"
-    }
-
-    depends_on  = [ 
-        azurerm_linux_web_app.webapp, 
-        azurerm_source_control_token.source_control_token 
-    ]
-}
-
-resource "azurerm_source_control_token" "source_control_token" {
-    type         = "GitHub"
-    token        = var.github_auth_token
-    token_secret = var.github_auth_token
-
-    depends_on = [ azurerm_app_service_source_control.source_control ]
-}
-
-#############################################
-# 5) Outputs (URLs, credenciais, etc.)
-#############################################
 
 output "webapp_url" {
     description = "The URL of the deployed web app"
     value = azurerm_linux_web_app.webapp.default_hostname
 }
 
-output "mysql_server_fqdn" {
-    description = "The fully qualified domain name of the MySQL server"
-    value = azurerm_mssql_server.sql_server.fully_qualified_domain_name
+output "db_user" {
+    description = "The MySQL database administrator username"
+    value = "${var.db_admin_username}@${azurerm_mssql_server.sql.name}"
 }
 
 output "db_name" {
@@ -142,7 +92,7 @@ output "db_name" {
     value = azurerm_mssql_database.db.name
 }
 
-output "db_user" {
-    description = "The MySQL database administrator username"
-    value = "${var.db_admin_username}@${azurerm_mssql_server.sql_server.name}"
+output "mysql_server_fqdn" {
+    description = "The fully qualified domain name of the MySQL server"
+    value = azurerm_mssql_server.sql.fully_qualified_domain_name
 }
