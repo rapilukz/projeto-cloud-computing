@@ -50,11 +50,6 @@ This project is a simple PHP web application, provisioned and managed using Terr
 - `variables.tf` — Input variables
 - `terraform.tfvars` — Variable values
 
-## Notes
-
-- It is recommended to use virtual networks (VNet) and private endpoints for better security.
-- Store sensitive secrets in Azure Key Vault.
-
 ## License
 
 This project is for educational purposes only.
