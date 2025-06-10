@@ -14,7 +14,7 @@ $cars = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <body>
     <h1>Carros</h1>
-    <a href="./app/create.php">Adicionar Novo Carro</a>
+    <a href="create.php">Adicionar Novo Carro</a>
     <table border="1" cellpadding="5">
         <tr>
             <th>ID</th>
@@ -34,8 +34,8 @@ $cars = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <td><?= htmlspecialchars($car['color']) ?></td>
                 <td><?= htmlspecialchars($car['price']) ?></td>
                 <td>
-                    <a href="./app/edit.php?id=<?= $car['id'] ?>">Editar</a> |
-                    <a href="./app/delete.php?id=<?= $car['id'] ?>" onclick="return confirm('Tem certeza?');">Eliminar</a>
+                    <a href="edit.php?id=<?= $car['id'] ?>">Editar</a> |
+                    <a href="delete.php?id=<?= $car['id'] ?>" onclick="return confirm('Tem certeza?');">Eliminar</a>
                 </td>
             </tr>
         <?php endforeach; ?>
