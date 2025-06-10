@@ -61,6 +61,7 @@ resource "azurerm_mssql_database" "db" {
     depends_on = [ azurerm_mssql_server.sql ]
 }
 
+# Just to allow all IPs for testing purposes, not recommended for production
 resource "azurerm_mssql_firewall_rule" "allow_all_ips" {
     name                = "AllowAllIPs"
     server_id         = azurerm_mssql_server.sql.id
