@@ -105,16 +105,16 @@ output "webapp_url" {
 }
 
 output "db_user" {
-    description = "The MySQL database administrator username"
+    description = "The SQL server database administrator username"
     value = "${var.db_admin_username}@${azurerm_mssql_server.sql.name}"
 }
 
 output "db_name" {
-    description = "The name of the MySQL database"
+    description = "The name of the SQL database"
     value = azurerm_mssql_database.db.name
 }
 
 output "mysql_server_fqdn" {
-    description = "The fully qualified domain name of the MySQL server"
+    description = "The fully qualified domain name of the SQL server"
     value = azurerm_mssql_server.sql.fully_qualified_domain_name
 }
