@@ -140,4 +140,5 @@ p a:hover {
 
 .delete-button:hover {
     text-decoration: underline;
+    background: none;
 }
