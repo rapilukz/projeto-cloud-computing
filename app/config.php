@@ -20,5 +20,6 @@ try {
     $pdo = new PDO($dsn, $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
+    error_log("Erro de conexão: " . $e->getMessage());
     die("Falha na conexão: " . $e->getMessage());
 }

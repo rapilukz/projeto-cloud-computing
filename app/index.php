@@ -35,7 +35,12 @@ $cars = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <td><?= htmlspecialchars($car['price']) ?></td>
                 <td>
                     <a href="edit.php?id=<?= $car['id'] ?>">Editar</a> |
-                    <a href="delete.php?id=<?= $car['id'] ?>" onclick="return confirm('Tem certeza?');">Eliminar</a>
+                    <form class="delete-form" action="delete.php" method="POST" onsubmit="return confirm('Tem certeza?');">
+                        <input type="hidden" name="id" value="<?= $car['id'] ?>">
+                        <button class="delete-button" type="submit">
+                            Eliminar
+                        </button>
+                    </form>
                 </td>
             </tr>
         <?php endforeach; ?>

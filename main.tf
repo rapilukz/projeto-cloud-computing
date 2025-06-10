@@ -32,7 +32,7 @@ resource "azurerm_linux_web_app" "webapp" {
     site_config {
         minimum_tls_version = "1.2"
         application_stack {
-            php_version = "8.4"  # Specify the PHP version
+            php_version = "8.3"  # Specify the PHP version
         }
     }
     connection_string {

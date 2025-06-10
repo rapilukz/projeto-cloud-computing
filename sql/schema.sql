@@ -5,7 +5,7 @@ BEGIN
         model VARCHAR(50) NOT NULL,
         year INT NOT NULL,
         color VARCHAR(30) NOT NULL,
-        mileage INT NOT NULL,
+        country VARCHAR(50) NOT NULL,
         price DECIMAL(10,2) NOT NULL
     );
 END;
