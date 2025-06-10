@@ -61,6 +61,15 @@ resource "azurerm_mssql_database" "db" {
     depends_on = [ azurerm_mssql_server.sql ]
 }
 
+resource "azurerm_mssql_firewall_rule" "allow_all_ips" {
+    name                = "AllowAllIPs"
+    server_id         = azurerm_mssql_server.sql.id
+    start_ip_address    = "0.0.0.0"
+    end_ip_address      = "255.255.255.255"
+
+    depends_on = [ azurerm_mssql_server.sql ]
+}
+
 resource "archive_file" "app_zip" {
     type        = "zip"
     source_dir  = "${path.module}/app"
@@ -74,6 +83,18 @@ resource "terraform_data" "deploy_code" {
 
     provisioner "local-exec" {
         command = "az webapp deploy --resource-group ${azurerm_resource_group.rg.name} --name ${azurerm_linux_web_app.webapp.name} --src-path ${archive_file.app_zip.output_path}"
+    }
+}
+
+resource "terraform_data" "initialize_db_schema" {
+    depends_on = [ azurerm_mssql_database.db,
+            azurerm_mssql_firewall_rule.allow_all_ips
+        ]
+
+    provisioner "local-exec" {
+        command = <<EOT
+            sqlcmd -S ${azurerm_mssql_server.sql.fully_qualified_domain_name} -d ${azurerm_mssql_database.db.name} -U ${var.db_admin_username} -P ${var.db_admin_password} -i ${path.module}/sql/schema.sql
+        EOT
     }
 }
 
