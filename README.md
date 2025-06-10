@@ -10,8 +10,6 @@ This project is a simple PHP web application, provisioned and managed using Terr
 - `sql/schema.sql` — Database schema script
 - `main.tf`, `providers.tf`, `variables.tf`, `terraform.tfvars` — Terraform configuration files
 - `deployment.bat` — Batch script to automate deployment with Terraform
-- `app.zip` — Zipped version of the application for deployment
-- `requirements/` — Documentation and project requirements
 
 ## Prerequisites
 
