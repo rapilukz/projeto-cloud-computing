@@ -114,7 +114,7 @@ output "db_name" {
     value = azurerm_mssql_database.db.name
 }
 
-output "mysql_server_fqdn" {
+output "mssql_server_fqdn" {
     description = "The fully qualified domain name of the SQL server"
     value = azurerm_mssql_server.sql.fully_qualified_domain_name
 }
