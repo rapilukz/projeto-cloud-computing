@@ -64,7 +64,7 @@ resource "azurerm_mssql_database" "db" {
 # Just to allow all IPs for testing purposes, not recommended for production
 resource "azurerm_mssql_firewall_rule" "allow_all_ips" {
     name                = "AllowAllIPs"
-    server_id         = azurerm_mssql_server.sql.id
+    server_id           = azurerm_mssql_server.sql.id
     start_ip_address    = "0.0.0.0"
     end_ip_address      = "255.255.255.255"
 
@@ -76,7 +76,7 @@ resource "archive_file" "app_zip" {
     source_dir  = "${path.module}/app"
     output_path = "${path.module}/app.zip"
     
-    depends_on = [ azurerm_linux_web_app.webapp ]
+    depends_on  = [ azurerm_linux_web_app.webapp ]
 }
 
 resource "terraform_data" "deploy_code" {
